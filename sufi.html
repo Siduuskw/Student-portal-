@@ -1,1 +1,2734 @@
-1000175274662
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Grade Portal - Secure Access</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .grade-card {
+            transition: all 0.3s ease;
+        }
+        .grade-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .dark .grade-card:hover {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        }
+        .drag-drop-area {
+            border: 2px dashed #5D5CDE;
+            transition: all 0.3s ease;
+        }
+        .drag-drop-area.dragover {
+            border-color: #4F46E5;
+            background-color: rgba(93, 92, 222, 0.1);
+        }
+        .auth-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #5D5CDE 0%, #4F46E5 100%);
+        }
+        .admin-glow {
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.5);
+            animation: adminPulse 2s infinite;
+        }
+        @keyframes adminPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(234, 179, 8, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(234, 179, 8, 0.8); }
+        }
+        .rank-1 {
+            background: linear-gradient(135deg, #FFD700 0%, #FFC600 100%);
+            border-color: #FFC600;
+        }
+        .rank-2 {
+            background: linear-gradient(135deg, #C0C0C0 0%, #B0B0B0 100%);
+            border-color: #B0B0B0;
+        }
+        .rank-3 {
+            background: linear-gradient(135deg, #CD7F32 0%, #B87333 100%);
+            border-color: #B87333;
+        }
+        .subject-summary {
+            transition: all 0.3s ease;
+        }
+        .subject-summary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .student-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+        }
+        .toggle-checkbox:checked {
+            @apply right-0 border-primary;
+            right: 0;
+            border-color: #5D5CDE;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            @apply bg-primary;
+            background-color: #5D5CDE;
+        }
+        .disabled-view {
+            opacity: 0.5;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        .admin-only {
+            display: none;
+        }
+        .admin-visible .admin-only {
+            display: block;
+        }
+    </style>
+</head>
+<body class="h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+    <!-- One-Time Admin Setup Screen -->
+    <div id="adminSetupScreen" class="hidden auth-container flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+            <div class="text-center">
+                <div class="mx-auto h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4">
+                    <span class="text-2xl">👑</span>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-2">Create Administrator Account</h2>
+                <p class="text-blue-100">One-time setup - Create the system administrator</p>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8">
+                <h3 class="text-2xl font-bold text-center mb-6">Setup Admin Account</h3>
+                <form id="adminSetupForm" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Administrator Name *</label>
+                        <input type="text" id="adminSetupName" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your full name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Admin Email *</label>
+                        <input type="email" id="adminSetupEmail" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your email" value="admin@gradeportal.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Admin Password *</label>
+                        <input type="password" id="adminSetupPassword" required minlength="6" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Create a secure password" value="Admin@123">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Phone Number *</label>
+                        <input type="tel" id="adminSetupPhone" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="+1 (555) 123-4567">
+                    </div>
+                    
+                    <!-- Section Access Control - Admin Only -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <h4 class="text-sm font-medium mb-3">Enable Application Sections</h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="enableTeacherView" checked class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                <label for="enableTeacherView" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                    Teacher View
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="enableStudentView" checked class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                <label for="enableStudentView" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                    Student View
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="enableContactView" checked class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                <label for="enableContactView" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                    Contact Owner
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium">
+                        👑 Create Administrator Account
+                    </button>
+                </form>
+                
+                <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg text-sm">
+                    <p class="text-blue-800 dark:text-blue-200">
+                        <strong>⚠️ Important:</strong> This will create the only administrator account for this system. The admin will have full control over user approvals and all system settings.
+                    </p>
+                    <p class="mt-2 text-blue-800 dark:text-blue-200">
+                        <strong>Default Admin Credentials:</strong><br>
+                        Email: admin@gradeportal.com<br>
+                        Password: Admin@123
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authentication Screen -->
+    <div id="authScreen" class="auth-container flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+            <div class="text-center">
+                <div class="mx-auto h-16 w-16 bg-white rounded-full flex items-center justify-center mb-4">
+                    <span class="text-2xl">📚</span>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-2">Grade Portal</h2>
+                <p class="text-blue-100">Secure Educational Management System</p>
+                <a href="https://instabio.cc/siduueducation" target="_blank" class="inline-block mt-2 text-blue-200 hover:text-white text-sm underline">
+                    📖 Education Profile & Resources
+                </a>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginScreen" class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8">
+                <h3 class="text-2xl font-bold text-center mb-6">Welcome Back</h3>
+                <form id="userLoginForm" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Email Address</label>
+                        <input type="email" id="userEmail" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your email">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Password</label>
+                        <input type="password" id="userPassword" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium">
+                        🔐 Sign In
+                    </button>
+                </form>
+                <div id="userLoginError" class="hidden mt-4 p-3 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg text-sm"></div>
+                
+                <div class="mt-6 text-center">
+                    <p class="text-gray-600 dark:text-gray-400">Need an account?</p>
+                    <button id="showRegisterBtn" class="text-primary hover:text-primary/80 font-medium">Request Account Access</button>
+                </div>
+            </div>
+
+            <!-- Registration Form -->
+            <div id="registerScreen" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8">
+                <h3 class="text-2xl font-bold text-center mb-6">Request Account Access</h3>
+                <form id="userRegisterForm" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Full Name *</label>
+                        <input type="text" id="registerName" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your full name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Email Address *</label>
+                        <input type="email" id="registerEmail" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your email">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Phone Number *</label>
+                        <input type="tel" id="registerPhone" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="+1 (555) 123-4567">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Password *</label>
+                        <input type="password" id="registerPassword" required minlength="6" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Create a secure password">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Role *</label>
+                        <select id="registerRole" required class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                            <option value="">Select your role...</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="student">Student</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Institution/School</label>
+                        <input type="text" id="registerInstitution" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your school/institution">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Reason for Access</label>
+                        <textarea id="registerReason" rows="3" class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white resize-none" placeholder="Brief reason why you need access to this portal"></textarea>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="registerTerms" required class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                        <label for="registerTerms" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                            I agree to the Terms of Service and Privacy Policy *
+                        </label>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium">
+                        📋 Submit Access Request
+                    </button>
+                </form>
+                
+                <div class="mt-6 text-center">
+                    <p class="text-gray-600 dark:text-gray-400">Already have an account?</p>
+                    <button id="showLoginBtn" class="text-primary hover:text-primary/80 font-medium">Sign In</button>
+                </div>
+                
+                <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg text-sm">
+                    <p class="text-blue-800 dark:text-blue-200">
+                        <strong>📋 Access Process:</strong> Your request will be sent to the administrator for review and approval. You'll receive an email notification once your account is approved.
+                    </p>
+                </div>
+                
+                <div id="registerMessage" class="hidden mt-4 p-4 rounded-lg text-sm"></div>
+            </div>
+
+            <!-- Pending Approval Screen -->
+            <div id="pendingScreen" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 text-center">
+                <div class="w-16 h-16 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-2xl">⏳</span>
+                </div>
+                <h3 class="text-2xl font-bold mb-4">Access Request Submitted</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">Your access request has been sent to the administrator for review.</p>
+                <div class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>What happens next?</strong><br>
+                        1. Administrator reviews your request<br>
+                        2. Account verification process<br>
+                        3. Email notification sent upon approval<br>
+                        4. Access to Grade Portal features<br>
+                        5. Welcome email with login instructions
+                    </p>
+                </div>
+                <button id="backToLoginBtn" class="mt-6 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors duration-200">
+                    Back to Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden min-h-full">
+        <!-- Header -->
+        <header class="bg-primary shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <h1 class="text-2xl font-bold text-white">📚 Grade Portal</h1>
+                            <a href="https://instabio.cc/siduueducation" target="_blank" class="text-blue-200 hover:text-white text-xs underline">
+                                Education Profile
+                            </a>
+                        </div>
+                        <div class="ml-4">
+                            <span id="userWelcome" class="text-blue-100"></span>
+                            <span id="userRole" class="text-blue-200 text-sm block"></span>
+                        </div>
+                    </div>
+                    <nav class="flex items-center space-x-6">
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="teacherViewCheckbox" class="h-5 w-5 text-primary focus:ring-primary rounded">
+                            <label for="teacherViewCheckbox" class="text-white cursor-pointer">Teacher View</label>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="studentViewCheckbox" class="h-5 w-5 text-primary focus:ring-primary rounded">
+                            <label for="studentViewCheckbox" class="text-white cursor-pointer">Student View</label>
+                        </div>
+                        <div class="flex items-center space-x-2 admin-only">
+                            <input type="checkbox" id="adminViewCheckbox" class="h-5 w-5 text-yellow-400 focus:ring-yellow-500 rounded">
+                            <label for="adminViewCheckbox" class="text-white cursor-pointer">Admin Panel</label>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="contactViewCheckbox" class="h-5 w-5 text-primary focus:ring-primary rounded">
+                            <label for="contactViewCheckbox" class="text-white cursor-pointer">Contact Owner</label>
+                        </div>
+                        <button id="logoutMainBtn" class="bg-red-500 bg-opacity-80 hover:bg-opacity-100 text-white px-4 py-2 rounded-lg transition-all duration-200 font-medium">
+                            Logout
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Admin Panel -->
+            <div id="adminView" class="hidden fade-in">
+                <div class="px-4 py-6 sm:px-0">
+                    <div class="border-4 border-dashed border-yellow-400 dark:border-yellow-600 rounded-lg p-8 bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-900 dark:to-yellow-800">
+                        <div class="flex items-center justify-center mb-8">
+                            <div class="text-center">
+                                <div class="w-20 h-20 bg-yellow-500 rounded-full flex items-center justify-center text-white text-4xl font-bold mx-auto mb-4 admin-glow">
+                                    👑
+                                </div>
+                                <h2 class="text-3xl font-bold text-yellow-900 dark:text-yellow-100 mb-2">Administrator Panel</h2>
+                                <p class="text-yellow-700 dark:text-yellow-300">Complete system control and user management</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Admin Actions -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-yellow-200 dark:border-yellow-700">
+                                <h3 class="text-xl font-semibold mb-4 text-yellow-900 dark:text-yellow-100 flex items-center">
+                                    ⏳ Access Requests 
+                                    <span id="pendingCount" class="ml-2 bg-red-500 text-white px-2 py-1 rounded-full text-sm">0</span>
+                                </h3>
+                                <div id="pendingApprovals" class="space-y-4 max-h-64 overflow-y-auto">
+                                    <p class="text-yellow-800 dark:text-yellow-200 text-center py-4">No pending requests</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-yellow-200 dark:border-yellow-700">
+                                <h3 class="text-xl font-semibold mb-4 text-yellow-900 dark:text-yellow-100 flex items-center">
+                                    ✅ Approved Users 
+                                    <span id="approvedCount" class="ml-2 bg-green-500 text-white px-2 py-1 rounded-full text-sm">0</span>
+                                </h3>
+                                <div id="approvedUsers" class="space-y-4 max-h-64 overflow-y-auto">
+                                    <p class="text-yellow-800 dark:text-yellow-200 text-center py-4">No approved users yet</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Admin Controls -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-yellow-200 dark:border-yellow-700">
+                                <h3 class="text-xl font-semibold mb-4 text-yellow-900 dark:text-yellow-100">🎯 Quick Actions</h3>
+                                <div class="space-y-3">
+                                    <button onclick="approveAllRequests()" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                        ✅ Approve All Requests
+                                    </button>
+                                    <button onclick="exportUserData()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                        📊 Export User Data
+                                    </button>
+                                    <button onclick="resetAllData()" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                        🗑️ Reset All Data
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-yellow-200 dark:border-yellow-700">
+                                <h3 class="text-xl font-semibold mb-4 text-yellow-900 dark:text-yellow-100">📧 Notifications</h3>
+                                <div class="space-y-3">
+                                    <button onclick="sendWelcomeEmails()" class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                        📬 Send Welcome Emails
+                                    </button>
+                                    <button onclick="notifyPendingUsers()" class="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                        📢 Notify Pending Users
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Admin System Info -->
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-yellow-200 dark:border-yellow-700">
+                            <h3 class="text-xl font-semibold mb-4 text-yellow-900 dark:text-yellow-100">🛡️ System Information</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Admin Name:</strong> <span id="adminNameDisplay"></span></p>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Admin Email:</strong> <span id="adminEmailDisplay"></span></p>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Admin Phone:</strong> <span id="adminPhoneDisplay"></span></p>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Account Created:</strong> <span id="adminCreatedDisplay"></span></p>
+                                </div>
+                                <div>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Total Requests:</strong> <span id="totalPendingDisplay">0</span></p>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Total Approved:</strong> <span id="totalApprovedDisplay">0</span></p>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Total Students:</strong> <span id="totalStudentsDisplay">0</span></p>
+                                    <p class="text-yellow-800 dark:text-yellow-200"><strong>Education Profile:</strong> <a href="https://instabio.cc/siduueducation" target="_blank" class="text-blue-600 underline">View Profile</a></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section Access Control - Admin Only -->
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-yellow-200 dark:border-yellow-700 mt-6">
+                            <h3 class="text-xl font-semibold mb-4 text-yellow-900 dark:text-yellow-100">🔒 Section Access Control</h3>
+                            <p class="text-sm text-yellow-800 dark:text-yellow-200 mb-4">Select which sections should be available to users:</p>
+                            
+                            <div class="space-y-3">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="adminEnableTeacherView" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                    <label for="adminEnableTeacherView" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                        Enable Teacher View for all users
+                                    </label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="adminEnableStudentView" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                    <label for="adminEnableStudentView" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                        Enable Student View for all users
+                                    </label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="adminEnableContactView" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                    <label for="adminEnableContactView" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                        Enable Contact Owner for all users
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button onclick="saveSectionAccess()" class="mt-4 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                Save Access Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Teacher View -->
+            <div id="teacherView" class="hidden fade-in">
+                <div class="px-4 py-6 sm:px-0">
+                    <div class="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-8">
+                        <div class="flex justify-between items-center mb-8">
+                            <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Teacher Dashboard</h2>
+                            <div class="flex space-x-4">
+                                <button id="exportExcelBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 font-medium flex items-center">
+                                    📊 Export to Excel
+                                </button>
+                                <button id="foundersAccessBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                    🔑 Owner's Access
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Bulk Student Upload Section -->
+                        <div class="bg-blue-50 dark:bg-blue-900 rounded-xl p-6 mb-8">
+                            <h3 class="text-xl font-semibold mb-4 text-blue-900 dark:text-blue-100">📤 Upload Students from Excel</h3>
+                            <div class="space-y-4">
+                                <div class="text-sm text-blue-800 dark:text-blue-200 mb-4">
+                                    <p class="font-medium mb-2">Excel format requirements:</p>
+                                    <ul class="list-disc list-inside space-y-1">
+                                        <li>Column A: Student Full Name</li>
+                                        <li>Column B: Username (for login)</li>
+                                        <li>Column C: Grade Level (0-12)</li>
+                                        <li>Column D: Section/Class (optional)</li>
+                                        <li>First row should be headers</li>
+                                    </ul>
+                                </div>
+                                <div id="studentUploadArea" class="drag-drop-area border-2 border-dashed border-primary rounded-lg p-8 text-center cursor-pointer">
+                                    <input type="file" id="studentExcelUpload" accept=".xlsx,.xls,.csv" class="hidden">
+                                    <div id="studentUploadText">
+                                        <p class="text-lg font-medium text-primary mb-2">📁 Drop Excel file here or click to browse</p>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Supports .xlsx, .xls, and .csv files</p>
+                                    </div>
+                                </div>
+                                <div id="studentUploadStatus" class="hidden"></div>
+                                <button id="downloadStudentTemplateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                    📋 Download Student Template
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Subject Management Section -->
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8">
+                            <h3 class="text-xl font-semibold mb-4">Subject Management</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Add New Subject</label>
+                                    <div class="flex space-x-2">
+                                        <input type="text" id="newSubject" class="flex-1 px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Subject name">
+                                        <button id="addSubjectBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Current Subjects</label>
+                                    <select id="subjectList" class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                        <option value="">Select a subject...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Excel Grades -->
+                        <div class="bg-blue-50 dark:bg-blue-900 rounded-xl p-6 mb-8">
+                            <h3 class="text-xl font-semibold mb-4 text-blue-900 dark:text-blue-100">📤 Upload Grades from Excel</h3>
+                            <div class="space-y-4">
+                                <div class="text-sm text-blue-800 dark:text-blue-200 mb-4">
+                                    <p class="font-medium mb-2">Excel format requirements:</p>
+                                    <ul class="list-disc list-inside space-y-1">
+                                        <li>Column A: Student Username</li>
+                                        <li>Column B: Subject</li>
+                                        <li>Column C: Grade (0-100)</li>
+                                        <li>Column D: Assignment (optional)</li>
+                                        <li>First row should be headers</li>
+                                    </ul>
+                                </div>
+                                <div id="uploadArea" class="drag-drop-area border-2 border-dashed border-primary rounded-lg p-8 text-center cursor-pointer">
+                                    <input type="file" id="excelUpload" accept=".xlsx,.xls,.csv" class="hidden">
+                                    <div id="uploadText">
+                                        <p class="text-lg font-medium text-primary mb-2">📁 Drop Excel file here or click to browse</p>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Supports .xlsx, .xls, and .csv files</p>
+                                    </div>
+                                </div>
+                                <div id="uploadStatus" class="hidden"></div>
+                                <button id="downloadTemplateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                    📋 Download Excel Template
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Add Student Form -->
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8">
+                            <h3 class="text-xl font-semibold mb-4">Add New Student</h3>
+                            <form id="addStudentForm" class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Student Name *</label>
+                                        <input type="text" id="studentName" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter student full name">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Username (for login) *</label>
+                                        <input type="text" id="studentUsername" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Create a username">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Grade Level *</label>
+                                        <select id="studentGradeLevel" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                            <option value="">Select grade level...</option>
+                                            <option value="0">Kindergarten</option>
+                                            <option value="1">Grade 1</option>
+                                            <option value="2">Grade 2</option>
+                                            <option value="3">Grade 3</option>
+                                            <option value="4">Grade 4</option>
+                                            <option value="5">Grade 5</option>
+                                            <option value="6">Grade 6</option>
+                                            <option value="7">Grade 7</option>
+                                            <option value="8">Grade 8</option>
+                                            <option value="9">Grade 9</option>
+                                            <option value="10">Grade 10</option>
+                                            <option value="11">Grade 11</option>
+                                            <option value="12">Grade 12</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Section/Class</label>
+                                        <input type="text" id="studentSection" class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Optional section/class">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Password *</label>
+                                        <input type="password" id="studentPassword" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Set login password">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Page Code (auto-generated)</label>
+                                        <div class="flex space-x-2">
+                                            <input type="text" id="pageCode" readonly class="flex-1 px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 dark:text-white">
+                                            <button type="button" id="generateCodeBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                                                🔄 Generate
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                    Add Student
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Add Grade Form -->
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8">
+                            <h3 class="text-xl font-semibold mb-4">Add Grade</h3>
+                            <form id="addGradeForm" class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Select Student</label>
+                                        <select id="gradeStudentSelect" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                            <option value="">Choose student...</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Subject</label>
+                                        <select id="subject" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                            <option value="">Select subject...</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Grade</label>
+                                        <input type="number" id="grade" required min="0" max="100" class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="0-100">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Assignment</label>
+                                        <input type="text" id="assignment" class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Test, Quiz, etc.">
+                                    </div>
+                                </div>
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                    Add Grade
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Students List -->
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8">
+                            <h3 class="text-xl font-semibold mb-4">Students Overview (Alphabetical Order)</h3>
+                            <div class="flex justify-between items-center mb-4">
+                                <div class="flex space-x-2">
+                                    <select id="filterGradeLevel" class="px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                        <option value="">All Grades</option>
+                                        <option value="0">Kindergarten</option>
+                                        <option value="1">Grade 1</option>
+                                        <option value="2">Grade 2</option>
+                                        <option value="3">Grade 3</option>
+                                        <option value="4">Grade 4</option>
+                                        <option value="5">Grade 5</option>
+                                        <option value="6">Grade 6</option>
+                                        <option value="7">Grade 7</option>
+                                        <option value="8">Grade 8</option>
+                                        <option value="9">Grade 9</option>
+                                        <option value="10">Grade 10</option>
+                                        <option value="11">Grade 11</option>
+                                        <option value="12">Grade 12</option>
+                                    </select>
+                                    <input type="text" id="searchStudent" placeholder="Search students..." class="px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                </div>
+                                <button id="showPasswordsBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                                    👁️ Show Passwords
+                                </button>
+                            </div>
+                            <div id="studentsList" class="space-y-4">
+                                <p class="text-gray-500 dark:text-gray-400 text-center py-8">No students added yet.</p>
+                            </div>
+                        </div>
+
+                        <!-- Subject Performance Summary -->
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6">
+                            <h3 class="text-xl font-semibold mb-4">Subject Performance Summary</h3>
+                            <div id="subjectSummary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <p class="text-gray-500 dark:text-gray-400 text-center py-8">No subjects with grades yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student View -->
+            <div id="studentView" class="hidden fade-in">
+                <div class="px-4 py-6 sm:px-0">
+                    <div class="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-8">
+                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Student Portal</h2>
+                        
+                        <!-- Login Form -->
+                        <div id="studentLogin" class="max-w-md mx-auto">
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6">
+                                <h3 class="text-xl font-semibold mb-4 text-center">Student Login</h3>
+                                <form id="loginForm" class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Username</label>
+                                        <input type="text" id="loginUsername" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your username">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Password</label>
+                                        <input type="password" id="loginPassword" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Enter your password">
+                                    </div>
+                                    <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium">
+                                        View My Grades
+                                    </button>
+                                </form>
+                                <div id="loginError" class="hidden mt-4 p-3 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg text-sm"></div>
+                            </div>
+                        </div>
+
+                        <!-- Student Dashboard -->
+                        <div id="studentDashboard" class="hidden">
+                            <div class="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 id="studentWelcome" class="text-2xl font-bold"></h3>
+                                    <p class="text-gray-600 dark:text-gray-400">Your academic progress</p>
+                                </div>
+                                <button id="logoutBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                                    Logout
+                                </button>
+                            </div>
+
+                            <!-- Grade Summary -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                <div class="bg-blue-50 dark:bg-blue-900 rounded-xl p-6">
+                                    <h4 class="text-lg font-semibold text-blue-900 dark:text-blue-100">Overall Average</h4>
+                                    <p id="overallAverage" class="text-3xl font-bold text-blue-600 dark:text-blue-300">-</p>
+                                </div>
+                                <div class="bg-green-50 dark:bg-green-900 rounded-xl p-6">
+                                    <h4 class="text-lg font-semibold text-green-900 dark:text-green-100">Highest Grade</h4>
+                                    <p id="highestGrade" class="text-3xl font-bold text-green-600 dark:text-green-300">-</p>
+                                </div>
+                                <div class="bg-purple-50 dark:bg-purple-900 rounded-xl p-6">
+                                    <h4 class="text-lg font-semibold text-purple-900 dark:text-purple-100">Total Subjects</h4>
+                                    <p id="totalSubjects" class="text-3xl font-bold text-purple-600 dark:text-purple-300">-</p>
+                                </div>
+                            </div>
+
+                            <!-- Sort Controls and Download -->
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Sort by:</label>
+                                    <select id="sortSelect" class="px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                        <option value="subject">Subject (A-Z)</option>
+                                        <option value="grade-desc">Grade (Highest to Lowest)</option>
+                                        <option value="grade-asc">Grade (Lowest to Highest)</option>
+                                        <option value="date">Date Added</option>
+                                    </select>
+                                </div>
+                                <button id="downloadMyGradesBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium flex items-center space-x-2">
+                                    <span>📊</span>
+                                    <span>Download My Grades</span>
+                                </button>
+                            </div>
+
+                            <!-- Grades Display -->
+                            <div id="gradesDisplay" class="space-y-4">
+                                <p class="text-gray-500 dark:text-gray-400 text-center py-8">No grades found.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Owner View -->
+            <div id="contactView" class="hidden fade-in">
+                <div class="px-4 py-6 sm:px-0">
+                    <div class="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-8">
+                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">Contact the App Owner</h2>
+                        
+                        <!-- Owner Information -->
+                        <div class="bg-gradient-to-r from-primary/10 to-purple-500/10 rounded-xl p-6 mb-8">
+                            <div class="text-center">
+                                <div class="w-24 h-24 bg-primary rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4">
+                                    👨‍💻
+                                </div>
+                                <h3 class="text-2xl font-bold mb-2">Grade Portal Owner</h3>
+                                <p class="text-gray-600 dark:text-gray-400 mb-4">Educational Technology System Administrator</p>
+                                <div class="flex justify-center flex-wrap gap-2 text-sm mb-4">
+                                    <span class="bg-primary/20 px-3 py-1 rounded-full">📧 siduuskw@gmail.com</span>
+                                    <span class="bg-primary/20 px-3 py-1 rounded-full">📬 appfoundermake@gmail.com</span>
+                                    <span class="bg-primary/20 px-3 py-1 rounded-full">🏢 Grade Portal Systems</span>
+                                </div>
+                                <a href="https://instabio.cc/siduueducation" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm">
+                                    📖 Visit Education Profile
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Contact Form -->
+                        <div class="max-w-2xl mx-auto">
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6">
+                                <h3 class="text-xl font-semibold mb-6">Send a Message</h3>
+                                <form id="contactForm" class="space-y-6">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2">Your Name *</label>
+                                            <input type="text" id="contactName" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-2">Your Email *</label>
+                                            <input type="email" id="contactEmail" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Institution/School</label>
+                                        <input type="text" id="contactInstitution" class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white" placeholder="Optional">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Subject *</label>
+                                        <select id="contactSubject" required class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white">
+                                            <option value="">Select a subject...</option>
+                                            <option value="feature-request">Feature Request</option>
+                                            <option value="bug-report">Bug Report</option>
+                                            <option value="support">Technical Support</option>
+                                            <option value="partnership">Partnership Inquiry</option>
+                                            <option value="feedback">General Feedback</option>
+                                            <option value="data-export">Data Export Request</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Message *</label>
+                                        <textarea id="contactMessage" required rows="6" class="w-full px-4 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white resize-none" placeholder="Please describe your question or feedback in detail..."></textarea>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="contactConsent" required class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                        <label for="contactConsent" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                            I consent to being contacted regarding my inquiry *
+                                        </label>
+                                    </div>
+                                    <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium">
+                                        Send Message to Owner
+                                    </button>
+                                </form>
+                                <div id="contactSuccess" class="hidden mt-4 p-4 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-lg"></div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Access Portal -->
+                        <div class="mt-8 max-w-md mx-auto">
+                            <div class="bg-yellow-50 dark:bg-yellow-900 rounded-xl p-6 border border-yellow-200 dark:border-yellow-700">
+                                <h3 class="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-4">🔐 Owner's Quick Access</h3>
+                                <p class="text-sm text-yellow-800 dark:text-yellow-200 mb-4">For app development and system management</p>
+                                <input type="password" id="founderPassword" placeholder="Enter owner access code" class="w-full px-4 py-2 text-base border border-yellow-300 dark:border-yellow-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 dark:bg-yellow-800 dark:text-yellow-100 mb-4">
+                                <button id="founderLoginBtn" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 font-medium">
+                                    Access System
+                                </button>
+                                <div id="founderAccess" class="hidden mt-4 p-4 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-lg">
+                                    ✅ Owner access granted! You have full system privileges.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Simplified data management system
+        let studentsData = {};
+        let currentStudent = null;
+        let currentUser = null;
+        let userAccounts = {};
+        let pendingAccounts = {};
+        let subjects = ['Mathematics', 'Science', 'English', 'History']; // Default subjects
+        const FOUNDER_ACCESS_CODE = "GRADEPORTAL2024";
+        const OWNER_EMAIL = "siduuskw@gmail.com";
+        const APPROVAL_EMAIL = "appfoundermake@gmail.com";
+        const INSTABIO_LINK = "https://instabio.cc/siduueducation";
+        let adminInitialized = false;
+        let adminAccount = null;
+        let showPasswords = false;
+        
+        // Section access control
+        let sectionAccess = {
+            teacherView: true,
+            studentView: true,
+            contactView: true
+        };
+
+        // Default profile photo as SVG
+        function getDefaultProfilePhoto() {
+            return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzVENUNERSIvPjx0ZXh0IHg9IjMyIiB5PSI0MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VTwvdGV4dD48L3N2Zz4=';
+        }
+
+        // Load data from localStorage
+        function loadFromStorage() {
+            try {
+                const storedStudents = localStorage.getItem('gradePortalData');
+                if (storedStudents) {
+                    studentsData = JSON.parse(storedStudents);
+                }
+
+                const storedUsers = localStorage.getItem('gradePortalUsers');
+                if (storedUsers) {
+                    userAccounts = JSON.parse(storedUsers);
+                }
+
+                const storedPending = localStorage.getItem('gradePortalPending');
+                if (storedPending) {
+                    pendingAccounts = JSON.parse(storedPending);
+                }
+
+                const storedAdminInit = localStorage.getItem('gradePortalAdminInit');
+                if (storedAdminInit) {
+                    adminInitialized = JSON.parse(storedAdminInit);
+                }
+
+                const storedAdmin = localStorage.getItem('gradePortalAdmin');
+                if (storedAdmin) {
+                    adminAccount = JSON.parse(storedAdmin);
+                }
+
+                const storedSubjects = localStorage.getItem('gradePortalSubjects');
+                if (storedSubjects) {
+                    subjects = JSON.parse(storedSubjects);
+                }
+                
+                const storedSectionAccess = localStorage.getItem('gradePortalSectionAccess');
+                if (storedSectionAccess) {
+                    sectionAccess = JSON.parse(storedSectionAccess);
+                }
+            } catch (e) {
+                console.error('Error loading data from storage:', e);
+                studentsData = {};
+                userAccounts = {};
+                pendingAccounts = {};
+                adminInitialized = false;
+                adminAccount = null;
+                subjects = ['Mathematics', 'Science', 'English', 'History'];
+                sectionAccess = {
+                    teacherView: true,
+                    studentView: true,
+                    contactView: true
+                };
+            }
+        }
+
+        // Save data to localStorage
+        function saveToStorage() {
+            try {
+                localStorage.setItem('gradePortalData', JSON.stringify(studentsData));
+                localStorage.setItem('gradePortalUsers', JSON.stringify(userAccounts));
+                localStorage.setItem('gradePortalPending', JSON.stringify(pendingAccounts));
+                localStorage.setItem('gradePortalAdminInit', JSON.stringify(adminInitialized));
+                localStorage.setItem('gradePortalAdmin', JSON.stringify(adminAccount));
+                localStorage.setItem('gradePortalSubjects', JSON.stringify(subjects));
+                localStorage.setItem('gradePortalSectionAccess', JSON.stringify(sectionAccess));
+                
+                // Create comprehensive backup
+                const backup = {
+                    students: studentsData,
+                    users: userAccounts,
+                    pending: pendingAccounts,
+                    admin: adminAccount,
+                    adminInit: adminInitialized,
+                    subjects: subjects,
+                    sectionAccess: sectionAccess,
+                    timestamp: new Date().toISOString(),
+                    ownerEmail: OWNER_EMAIL,
+                    approvalEmail: APPROVAL_EMAIL,
+                    instabioLink: INSTABIO_LINK
+                };
+                localStorage.setItem('gradePortalFullBackup', JSON.stringify(backup));
+            } catch (e) {
+                console.error('Error saving data to storage:', e);
+                showToast('Error saving data to local storage', 'error');
+            }
+        }
+
+        // Update UI based on section access
+        function updateSectionAccessUI() {
+            // Update checkboxes in admin panel
+            document.getElementById('adminEnableTeacherView').checked = sectionAccess.teacherView;
+            document.getElementById('adminEnableStudentView').checked = sectionAccess.studentView;
+            document.getElementById('adminEnableContactView').checked = sectionAccess.contactView;
+            
+            // Update main navigation checkboxes
+            document.getElementById('teacherViewCheckbox').disabled = !sectionAccess.teacherView;
+            document.getElementById('studentViewCheckbox').disabled = !sectionAccess.studentView;
+            document.getElementById('contactViewCheckbox').disabled = !sectionAccess.contactView;
+            
+            // Add disabled class if section is not accessible
+            if (!sectionAccess.teacherView) {
+                document.getElementById('teacherViewCheckbox').parentElement.classList.add('disabled-view');
+            } else {
+                document.getElementById('teacherViewCheckbox').parentElement.classList.remove('disabled-view');
+            }
+            
+            if (!sectionAccess.studentView) {
+                document.getElementById('studentViewCheckbox').parentElement.classList.add('disabled-view');
+            } else {
+                document.getElementById('studentViewCheckbox').parentElement.classList.remove('disabled-view');
+            }
+            
+            if (!sectionAccess.contactView) {
+                document.getElementById('contactViewCheckbox').parentElement.classList.add('disabled-view');
+            } else {
+                document.getElementById('contactViewCheckbox').parentElement.classList.remove('disabled-view');
+            }
+        }
+
+        // Save section access settings - Admin only function
+        function saveSectionAccess() {
+            if (currentUser && currentUser.role === 'administrator') {
+                sectionAccess = {
+                    teacherView: document.getElementById('adminEnableTeacherView').checked,
+                    studentView: document.getElementById('adminEnableStudentView').checked,
+                    contactView: document.getElementById('adminEnableContactView').checked
+                };
+                
+                saveToStorage();
+                updateSectionAccessUI();
+                showToast('Section access settings saved!', 'success');
+            } else {
+                showToast('Only administrators can modify section access', 'error');
+            }
+        }
+
+        // Dark mode setup
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Check if admin setup is needed first
+        function checkAdminSetup() {
+            if (!adminInitialized || !adminAccount) {
+                document.getElementById('authScreen').classList.add('hidden');
+                document.getElementById('adminSetupScreen').classList.remove('hidden');
+                return false;
+            }
+            return true;
+        }
+
+        // Admin setup form handler - simplified without access code
+        document.getElementById('adminSetupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('adminSetupName').value.trim();
+            const email = document.getElementById('adminSetupEmail').value.trim();
+            const password = document.getElementById('adminSetupPassword').value;
+            const phone = document.getElementById('adminSetupPhone').value.trim();
+
+            // Get section access settings from setup form
+            const teacherViewEnabled = document.getElementById('enableTeacherView').checked;
+            const studentViewEnabled = document.getElementById('enableStudentView').checked;
+            const contactViewEnabled = document.getElementById('enableContactView').checked;
+
+            // Create admin account
+            adminAccount = {
+                name: name,
+                email: email,
+                phone: phone,
+                password: password,
+                role: 'administrator',
+                photo: getDefaultProfilePhoto(),
+                approved: true,
+                createdAt: new Date().toISOString(),
+                isMainAdmin: true
+            };
+
+            // Set initial section access
+            sectionAccess = {
+                teacherView: teacherViewEnabled,
+                studentView: studentViewEnabled,
+                contactView: contactViewEnabled
+            };
+
+            userAccounts[email] = adminAccount;
+            adminInitialized = true;
+            saveToStorage();
+
+            showToast('Administrator account created successfully!', 'success');
+            
+            // Auto-login the admin
+            currentUser = adminAccount;
+            document.getElementById('adminSetupScreen').classList.add('hidden');
+            authenticateUser();
+        });
+
+        // Authentication functions
+        function showLoginScreen() {
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('registerScreen').classList.add('hidden');
+            document.getElementById('pendingScreen').classList.add('hidden');
+        }
+
+        function showRegisterScreen() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('registerScreen').classList.remove('hidden');
+            document.getElementById('pendingScreen').classList.add('hidden');
+        }
+
+        function showPendingScreen() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('registerScreen').classList.add('hidden');
+            document.getElementById('pendingScreen').classList.remove('hidden');
+        }
+
+        function authenticateUser() {
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('userWelcome').textContent = `Welcome, ${currentUser.name}`;
+            document.getElementById('userRole').textContent = `Role: ${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}`;
+            
+            // Show admin panel if user is admin
+            if (currentUser.role === 'administrator') {
+                document.body.classList.add('admin-visible');
+                document.getElementById('adminViewCheckbox').parentElement.classList.remove('hidden');
+                document.getElementById('adminViewCheckbox').classList.remove('hidden');
+            } else {
+                document.body.classList.remove('admin-visible');
+            }
+            
+            // Update section access UI
+            updateSectionAccessUI();
+            
+            initializeMainApp();
+        }
+
+        // Login form handler
+        document.getElementById('userLoginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('userEmail').value.trim();
+            const password = document.getElementById('userPassword').value;
+            const errorDiv = document.getElementById('userLoginError');
+
+            // Check if user exists and is approved
+            if (userAccounts[email] && userAccounts[email].password === password && userAccounts[email].approved) {
+                currentUser = userAccounts[email];
+                authenticateUser();
+                errorDiv.classList.add('hidden');
+            } else if (pendingAccounts[email]) {
+                showPendingScreen();
+                errorDiv.classList.add('hidden');
+            } else {
+                errorDiv.textContent = 'Invalid credentials or account not approved yet.';
+                errorDiv.classList.remove('hidden');
+            }
+        });
+
+        // Register form handler
+        document.getElementById('userRegisterForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('registerName').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
+            const phone = document.getElementById('registerPhone').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const role = document.getElementById('registerRole').value;
+            const institution = document.getElementById('registerInstitution').value.trim();
+            const reason = document.getElementById('registerReason').value.trim();
+            const messageDiv = document.getElementById('registerMessage');
+
+            // Check if user already exists
+            if (userAccounts[email] || pendingAccounts[email]) {
+                messageDiv.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Account with this email already exists!</div>';
+                messageDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Create pending account
+            const newAccount = {
+                name: name,
+                email: email,
+                phone: phone,
+                password: password,
+                role: role,
+                institution: institution || 'Not specified',
+                reason: reason || 'No reason provided',
+                photo: getDefaultProfilePhoto(),
+                submittedAt: new Date().toISOString(),
+                approved: false
+            };
+
+            pendingAccounts[email] = newAccount;
+            saveToStorage();
+            
+            messageDiv.innerHTML = `<div class="text-green-600 dark:text-green-400">✅ Access request submitted successfully! The administrator will review your request.</div>`;
+            messageDiv.classList.remove('hidden');
+            
+            // Clear form
+            document.getElementById('userRegisterForm').reset();
+            
+            // Show pending screen after 2 seconds
+            setTimeout(() => {
+                showPendingScreen();
+            }, 2000);
+        });
+
+        // Navigation between auth screens
+        document.getElementById('showRegisterBtn').addEventListener('click', showRegisterScreen);
+        document.getElementById('showLoginBtn').addEventListener('click', showLoginScreen);
+        document.getElementById('backToLoginBtn').addEventListener('click', showLoginScreen);
+
+        // Main app navigation
+        function hideAllViews() {
+            document.getElementById('teacherView').classList.add('hidden');
+            document.getElementById('studentView').classList.add('hidden');
+            document.getElementById('contactView').classList.add('hidden');
+            document.getElementById('adminView').classList.add('hidden');
+            
+            // Uncheck all checkboxes
+            document.getElementById('teacherViewCheckbox').checked = false;
+            document.getElementById('studentViewCheckbox').checked = false;
+            document.getElementById('adminViewCheckbox').checked = false;
+            document.getElementById('contactViewCheckbox').checked = false;
+        }
+
+        // View toggle functionality
+        document.getElementById('teacherViewCheckbox').addEventListener('change', (e) => {
+            if (e.target.checked && sectionAccess.teacherView) {
+                hideAllViews();
+                document.getElementById('teacherView').classList.remove('hidden');
+                document.getElementById('studentViewCheckbox').checked = false;
+                document.getElementById('adminViewCheckbox').checked = false;
+                document.getElementById('contactViewCheckbox').checked = false;
+                updateSubjectList();
+                updateSubjectSelect();
+            } else {
+                e.target.checked = false;
+            }
+        });
+
+        document.getElementById('studentViewCheckbox').addEventListener('change', (e) => {
+            if (e.target.checked && sectionAccess.studentView) {
+                hideAllViews();
+                document.getElementById('studentView').classList.remove('hidden');
+                document.getElementById('teacherViewCheckbox').checked = false;
+                document.getElementById('adminViewCheckbox').checked = false;
+                document.getElementById('contactViewCheckbox').checked = false;
+                resetStudentView();
+            } else {
+                e.target.checked = false;
+            }
+        });
+
+        document.getElementById('adminViewCheckbox').addEventListener('change', (e) => {
+            if (e.target.checked && currentUser && currentUser.role === 'administrator') {
+                hideAllViews();
+                document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('teacherViewCheckbox').checked = false;
+                document.getElementById('studentViewCheckbox').checked = false;
+                document.getElementById('contactViewCheckbox').checked = false;
+                updatePendingApprovals();
+                updateApprovedUsers();
+                updateAdminInfo();
+            } else {
+                e.target.checked = false;
+            }
+        });
+
+        document.getElementById('contactViewCheckbox').addEventListener('change', (e) => {
+            if (e.target.checked && sectionAccess.contactView) {
+                hideAllViews();
+                document.getElementById('contactView').classList.remove('hidden');
+                document.getElementById('teacherViewCheckbox').checked = false;
+                document.getElementById('studentViewCheckbox').checked = false;
+                document.getElementById('adminViewCheckbox').checked = false;
+            } else {
+                e.target.checked = false;
+            }
+        });
+
+        // Logout functionality
+        document.getElementById('logoutMainBtn').addEventListener('click', () => {
+            currentUser = null;
+            currentStudent = null;
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('authScreen').classList.remove('hidden');
+            document.getElementById('userEmail').value = '';
+            document.getElementById('userPassword').value = '';
+            showLoginScreen();
+        });
+
+        // Enhanced admin functions
+        function updateAdminInfo() {
+            if (adminAccount) {
+                document.getElementById('adminNameDisplay').textContent = adminAccount.name;
+                document.getElementById('adminEmailDisplay').textContent = adminAccount.email;
+                document.getElementById('adminPhoneDisplay').textContent = adminAccount.phone;
+                document.getElementById('adminCreatedDisplay').textContent = new Date(adminAccount.createdAt).toLocaleString();
+                document.getElementById('totalPendingDisplay').textContent = Object.keys(pendingAccounts).length;
+                document.getElementById('totalApprovedDisplay').textContent = Object.values(userAccounts).filter(u => u.approved).length;
+                document.getElementById('totalStudentsDisplay').textContent = Object.keys(studentsData).length;
+            }
+        }
+
+        function updatePendingApprovals() {
+            const container = document.getElementById('pendingApprovals');
+            const countBadge = document.getElementById('pendingCount');
+            const pending = Object.values(pendingAccounts);
+
+            countBadge.textContent = pending.length;
+
+            if (pending.length === 0) {
+                container.innerHTML = '<p class="text-yellow-800 dark:text-yellow-200 text-center py-4">No pending requests</p>';
+                return;
+            }
+
+            container.innerHTML = pending.map(account => `
+                <div class="bg-white dark:bg-gray-700 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700 shadow-sm">
+                    <div class="flex items-start space-x-4">
+                        <img src="${account.photo}" alt="Profile" class="w-12 h-12 rounded-full object-cover border-2 border-yellow-400">
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-semibold text-sm">${account.name}</h4>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 truncate">📧 ${account.email}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">📞 ${account.phone}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">👤 ${account.role}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">🏢 ${account.institution}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">💭 ${account.reason}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-500">📅 ${new Date(account.submittedAt).toLocaleDateString()}</p>
+                        </div>
+                        <div class="flex flex-col space-y-1">
+                            <button onclick="approveAccount('${account.email}')" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium">
+                                ✅ Approve
+                            </button>
+                            <button onclick="rejectAccount('${account.email}')" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium">
+                                ❌ Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateApprovedUsers() {
+            const container = document.getElementById('approvedUsers');
+            const countBadge = document.getElementById('approvedCount');
+            const approved = Object.values(userAccounts).filter(user => user.approved);
+
+            countBadge.textContent = approved.length;
+
+            if (approved.length === 0) {
+                container.innerHTML = '<p class="text-yellow-800 dark:text-yellow-200 text-center py-4">No approved users yet</p>';
+                return;
+            }
+
+            container.innerHTML = approved.map(user => `
+                <div class="bg-white dark:bg-gray-700 rounded-lg p-4 border border-green-200 dark:border-green-700 shadow-sm">
+                    <div class="flex items-start space-x-4">
+                        <img src="${user.photo}" alt="Profile" class="w-12 h-12 rounded-full object-cover border-2 border-green-400">
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-semibold text-sm flex items-center">
+                                ${user.name}
+                                ${user.isMainAdmin ? '<span class="ml-2 text-xs bg-yellow-500 text-white px-2 py-1 rounded">👑 ADMIN</span>' : ''}
+                            </h4>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 truncate">📧 ${user.email}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">📞 ${user.phone}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">👤 ${user.role}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-500">✅ ${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Legacy'}</p>
+                        </div>
+                        ${user.isMainAdmin ? '' : `
+                        <div class="flex space-x-1">
+                            <button onclick="revokeAccess('${user.email}')" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium">
+                                🚫 Revoke
+                            </button>
+                        </div>
+                        `}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function approveAccount(email) {
+            if (pendingAccounts[email]) {
+                const account = pendingAccounts[email];
+                account.approved = true;
+                account.approvedAt = new Date().toISOString();
+                
+                userAccounts[email] = account;
+                delete pendingAccounts[email];
+                
+                saveToStorage();
+                updatePendingApprovals();
+                updateApprovedUsers();
+                updateAdminInfo();
+                
+                showToast(`Account approved for ${account.name}!`, 'success');
+            }
+        }
+
+        function rejectAccount(email) {
+            if (confirm('Are you sure you want to reject this access request?')) {
+                const account = pendingAccounts[email];
+                
+                delete pendingAccounts[email];
+                saveToStorage();
+                updatePendingApprovals();
+                updateAdminInfo();
+                showToast(`Access request rejected for ${account.name}`, 'error');
+            }
+        }
+
+        function revokeAccess(email) {
+            if (confirm('Are you sure you want to revoke access for this user?')) {
+                const user = userAccounts[email];
+                
+                delete userAccounts[email];
+                saveToStorage();
+                updateApprovedUsers();
+                updateAdminInfo();
+                showToast(`User access revoked for ${user.name}`, 'error');
+            }
+        }
+
+        // Admin control functions
+        function approveAllRequests() {
+            if (Object.keys(pendingAccounts).length === 0) {
+                showToast('No pending requests to approve', 'info');
+                return;
+            }
+
+            if (confirm(`Are you sure you want to approve all ${Object.keys(pendingAccounts).length} pending requests?`)) {
+                let approved = 0;
+                Object.values(pendingAccounts).forEach(account => {
+                    account.approved = true;
+                    account.approvedAt = new Date().toISOString();
+                    userAccounts[account.email] = account;
+                    approved++;
+                });
+                
+                pendingAccounts = {};
+                saveToStorage();
+                updatePendingApprovals();
+                updateApprovedUsers();
+                updateAdminInfo();
+                showToast(`${approved} accounts approved successfully!`, 'success');
+            }
+        }
+
+        function exportUserData() {
+            const allData = {
+                adminInfo: adminAccount,
+                approvedUsers: userAccounts,
+                pendingRequests: pendingAccounts,
+                studentsData: studentsData,
+                sectionAccess: sectionAccess,
+                exportedAt: new Date().toISOString(),
+                systemInfo: {
+                    totalUsers: Object.keys(userAccounts).length,
+                    totalPending: Object.keys(pendingAccounts).length,
+                    totalStudents: Object.keys(studentsData).length
+                }
+            };
+
+            const dataStr = JSON.stringify(allData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `GradePortal_FullExport_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showToast('User data exported successfully!', 'success');
+        }
+
+        function resetAllData() {
+            if (confirm('⚠️ WARNING: This will delete ALL data including users, students, and grades. This action cannot be undone. Are you absolutely sure?')) {
+                if (confirm('🚨 FINAL CONFIRMATION: This will permanently delete everything except the admin account. Type "DELETE" in the next prompt to confirm.')) {
+                    const confirmation = prompt('Type "DELETE" to confirm data reset:');
+                    if (confirmation === 'DELETE') {
+                        // Keep only admin account
+                        userAccounts = {};
+                        userAccounts[adminAccount.email] = adminAccount;
+                        pendingAccounts = {};
+                        studentsData = {};
+                        subjects = ['Mathematics', 'Science', 'English', 'History'];
+                        sectionAccess = {
+                            teacherView: true,
+                            studentView: true,
+                            contactView: true
+                        };
+                        
+                        saveToStorage();
+                        updatePendingApprovals();
+                        updateApprovedUsers();
+                        updateAdminInfo();
+                        updateStudentsList();
+                        updateGradeStudentSelect();
+                        updateSubjectList();
+                        updateSubjectSelect();
+                        updateSectionAccessUI();
+                        
+                        showToast('All data has been reset. Only admin account remains.', 'success');
+                    } else {
+                        showToast('Data reset cancelled - confirmation text did not match', 'info');
+                    }
+                }
+            }
+        }
+
+        function sendWelcomeEmails() {
+            const approvedUsers = Object.values(userAccounts).filter(u => u.approved && !u.isMainAdmin);
+            if (approvedUsers.length === 0) {
+                showToast('No approved users to send welcome emails to', 'info');
+                return;
+            }
+
+            // Simulate sending welcome emails
+            showToast(`Welcome emails sent to ${approvedUsers.length} users!`, 'success');
+        }
+
+        function notifyPendingUsers() {
+            const pending = Object.keys(pendingAccounts).length;
+            if (pending === 0) {
+                showToast('No pending users to notify', 'info');
+                return;
+            }
+
+            // Simulate sending notifications
+            showToast(`Status notifications sent to ${pending} pending users!`, 'success');
+        }
+
+        // Rest of the existing functionality (keeping all student management functions)
+        function resetStudentView() {
+            document.getElementById('studentLogin').classList.remove('hidden');
+            document.getElementById('studentDashboard').classList.add('hidden');
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginUsername').value = '';
+            currentStudent = null;
+        }
+
+        function generatePageCode() {
+            let code;
+            do {
+                code = Math.random().toString(36).substr(2, 8).toUpperCase();
+            } while (studentsData[code]);
+            return code;
+        }
+
+        document.getElementById('studentName').addEventListener('input', (e) => {
+            if (e.target.value.trim()) {
+                document.getElementById('pageCode').value = generatePageCode();
+            } else {
+                document.getElementById('pageCode').value = '';
+            }
+        });
+
+        document.getElementById('generateCodeBtn').addEventListener('click', () => {
+            document.getElementById('pageCode').value = generatePageCode();
+        });
+
+        // Subject management functions
+        function updateSubjectList() {
+            const select = document.getElementById('subjectList');
+            select.innerHTML = '<option value="">Select a subject...</option>' + 
+                subjects.map(subject => `<option value="${subject}">${subject}</option>`).join('');
+        }
+
+        function updateSubjectSelect() {
+            const select = document.getElementById('subject');
+            select.innerHTML = '<option value="">Select subject...</option>' + 
+                subjects.map(subject => `<option value="${subject}">${subject}</option>`).join('');
+        }
+
+        document.getElementById('addSubjectBtn').addEventListener('click', () => {
+            const newSubject = document.getElementById('newSubject').value.trim();
+            if (newSubject && !subjects.includes(newSubject)) {
+                subjects.push(newSubject);
+                saveToStorage();
+                updateSubjectList();
+                updateSubjectSelect();
+                document.getElementById('newSubject').value = '';
+                showToast(`Subject "${newSubject}" added successfully!`, 'success');
+                updateSubjectSummary();
+            } else if (subjects.includes(newSubject)) {
+                showToast('Subject already exists', 'error');
+            }
+        });
+
+        // Student management functions
+        document.getElementById('addStudentForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('studentName').value.trim();
+            const username = document.getElementById('studentUsername').value.trim();
+            const password = document.getElementById('studentPassword').value;
+            const gradeLevel = document.getElementById('studentGradeLevel').value;
+            const section = document.getElementById('studentSection').value.trim();
+            const pageCode = document.getElementById('pageCode').value;
+
+            if (!name || !username || !password || !gradeLevel || !pageCode) return;
+
+            const existingStudent = Object.values(studentsData).find(s => s.username.toLowerCase() === username.toLowerCase());
+            if (existingStudent) {
+                showToast('Username already exists. Please choose a different username.', 'error');
+                return;
+            }
+
+            studentsData[pageCode] = {
+                name: name,
+                username: username,
+                password: password,
+                gradeLevel: parseInt(gradeLevel),
+                section: section || '',
+                pageCode: pageCode,
+                grades: []
+            };
+
+            saveToStorage();
+            updateStudentsList();
+            updateGradeStudentSelect();
+            updateAdminInfo();
+
+            document.getElementById('studentName').value = '';
+            document.getElementById('studentUsername').value = '';
+            document.getElementById('studentPassword').value = '';
+            document.getElementById('studentGradeLevel').value = '';
+            document.getElementById('studentSection').value = '';
+            document.getElementById('pageCode').value = '';
+
+            showToast('Student added successfully!', 'success');
+        });
+
+        // Excel functionality for student upload
+        const studentUploadArea = document.getElementById('studentUploadArea');
+        const studentExcelUpload = document.getElementById('studentExcelUpload');
+        const studentUploadStatus = document.getElementById('studentUploadStatus');
+
+        studentUploadArea.addEventListener('click', () => {
+            studentExcelUpload.click();
+        });
+
+        studentUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            studentUploadArea.classList.add('dragover');
+        });
+
+        studentUploadArea.addEventListener('dragleave', () => {
+            studentUploadArea.classList.remove('dragover');
+        });
+
+        studentUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            studentUploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleStudentExcelUpload(files[0]);
+            }
+        });
+
+        studentExcelUpload.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleStudentExcelUpload(e.target.files[0]);
+            }
+        });
+
+        function handleStudentExcelUpload(file) {
+            const fileName = file.name;
+            const fileExtension = fileName.split('.').pop().toLowerCase();
+            
+            if (!['xlsx', 'xls', 'csv'].includes(fileExtension)) {
+                showToast('Please upload a valid Excel or CSV file', 'error');
+                return;
+            }
+
+            studentUploadStatus.innerHTML = `<div class="text-blue-600 dark:text-blue-400">📤 Processing ${fileName}...</div>`;
+            studentUploadStatus.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    processStudentExcelData(jsonData, fileName);
+                } catch (error) {
+                    console.error('Error reading Excel file:', error);
+                    studentUploadStatus.innerHTML = `<div class="text-red-600 dark:text-red-400">❌ Error reading file: ${error.message}</div>`;
+                    showToast('Error reading Excel file', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processStudentExcelData(data, fileName) {
+            if (data.length < 2) {
+                studentUploadStatus.innerHTML = `<div class="text-red-600 dark:text-red-400">❌ File must contain at least a header row and one data row</div>`;
+                return;
+            }
+
+            const headers = data[0];
+            const rows = data.slice(1);
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+
+            const expectedHeaders = ['name', 'username', 'gradelevel', 'section'];
+            const headerMap = {};
+            
+            headers.forEach((header, index) => {
+                const normalizedHeader = header.toString().toLowerCase().trim();
+                if (expectedHeaders.includes(normalizedHeader)) {
+                    headerMap[normalizedHeader] = index;
+                }
+            });
+
+            if (!headerMap.name || !headerMap.username || !headerMap.gradelevel) {
+                studentUploadStatus.innerHTML = `<div class="text-red-600 dark:text-red-400">❌ Required columns missing. Expected: Name, Username, GradeLevel, Section (optional)</div>`;
+                return;
+            }
+
+            rows.forEach((row, rowIndex) => {
+                try {
+                    const name = row[headerMap.name]?.toString().trim();
+                    const username = row[headerMap.username]?.toString().trim();
+                    const gradeLevel = parseInt(row[headerMap.gradelevel]);
+                    const section = row[headerMap.section]?.toString().trim() || '';
+
+                    if (!name || !username || isNaN(gradeLevel)) {
+                        errors.push(`Row ${rowIndex + 2}: Missing required data`);
+                        errorCount++;
+                        return;
+                    }
+
+                    if (gradeLevel < 0 || gradeLevel > 12) {
+                        errors.push(`Row ${rowIndex + 2}: Grade level must be between 0-12`);
+                        errorCount++;
+                        return;
+                    }
+
+                    const existingStudent = Object.values(studentsData).find(s => s.username.toLowerCase() === username.toLowerCase());
+                    if (existingStudent) {
+                        errors.push(`Row ${rowIndex + 2}: Student '${username}' already exists`);
+                        errorCount++;
+                        return;
+                    }
+
+                    const pageCode = generatePageCode();
+                    const password = Math.random().toString(36).slice(-8); // Generate random password
+
+                    studentsData[pageCode] = {
+                        name: name,
+                        username: username,
+                        password: password,
+                        gradeLevel: gradeLevel,
+                        section: section,
+                        pageCode: pageCode,
+                        grades: []
+                    };
+
+                    successCount++;
+
+                } catch (error) {
+                    errors.push(`Row ${rowIndex + 2}: ${error.message}`);
+                    errorCount++;
+                }
+            });
+
+            if (successCount > 0) {
+                saveToStorage();
+                updateStudentsList();
+                updateGradeStudentSelect();
+                updateAdminInfo();
+            }
+
+            let statusHTML = `<div class="space-y-2">`;
+            if (successCount > 0) {
+                statusHTML += `<div class="text-green-600 dark:text-green-400">✅ Successfully imported ${successCount} students from ${fileName}</div>`;
+            }
+            if (errorCount > 0) {
+                statusHTML += `<div class="text-red-600 dark:text-red-400">❌ ${errorCount} errors occurred:</div>`;
+                statusHTML += `<div class="text-sm text-red-500 dark:text-red-400 max-h-32 overflow-y-auto">`;
+                errors.slice(0, 10).forEach(error => {
+                    statusHTML += `<div>• ${error}</div>`;
+                });
+                if (errors.length > 10) {
+                    statusHTML += `<div>... and ${errors.length - 10} more errors</div>`;
+                }
+                statusHTML += `</div>`;
+            }
+            statusHTML += `</div>`;
+
+            studentUploadStatus.innerHTML = statusHTML;
+            
+            if (successCount > 0) {
+                showToast(`Successfully imported ${successCount} students!`, 'success');
+            }
+            if (errorCount > 0) {
+                showToast(`${errorCount} errors occurred during import`, 'error');
+            }
+
+            studentExcelUpload.value = '';
+        }
+
+        document.getElementById('downloadStudentTemplateBtn').addEventListener('click', () => {
+            const templateData = [
+                ['Name', 'Username', 'GradeLevel', 'Section'],
+                ['John Doe', 'johndoe', '5', 'A'],
+                ['Jane Smith', 'janesmith', '7', 'B'],
+                ['Michael Johnson', 'michaelj', '10', 'Science']
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Student Template');
+            
+            const fileName = `Student_Upload_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast('Student template downloaded!', 'success');
+        });
+
+        // Student login functionality
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const loginError = document.getElementById('loginError');
+
+            const student = Object.values(studentsData).find(s => 
+                s.username.toLowerCase() === username.toLowerCase() && 
+                s.password === password
+            );
+
+            if (student) {
+                currentStudent = student;
+                document.getElementById('studentLogin').classList.add('hidden');
+                document.getElementById('studentDashboard').classList.remove('hidden');
+                loadStudentDashboard();
+                loginError.classList.add('hidden');
+            } else {
+                loginError.textContent = 'Invalid username or password. Please check and try again.';
+                loginError.classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            resetStudentView();
+        });
+
+        // Student list filtering
+        document.getElementById('filterGradeLevel').addEventListener('change', () => {
+            updateStudentsList();
+        });
+
+        document.getElementById('searchStudent').addEventListener('input', () => {
+            updateStudentsList();
+        });
+
+        // Toggle password visibility
+        document.getElementById('showPasswordsBtn').addEventListener('click', () => {
+            showPasswords = !showPasswords;
+            document.getElementById('showPasswordsBtn').textContent = 
+                showPasswords ? '👁️ Hide Passwords' : '👁️ Show Passwords';
+            updateStudentsList();
+        });
+
+        function updateStudentsList() {
+            const container = document.getElementById('studentsList');
+            const gradeFilter = document.getElementById('filterGradeLevel').value;
+            const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+            
+            let students = Object.values(studentsData);
+
+            // Apply filters
+            if (gradeFilter) {
+                students = students.filter(student => student.gradeLevel.toString() === gradeFilter);
+            }
+            
+            if (searchTerm) {
+                students = students.filter(student => 
+                    student.name.toLowerCase().includes(searchTerm) || 
+                    student.username.toLowerCase().includes(searchTerm) ||
+                    student.section.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            // Sort alphabetically
+            students.sort((a, b) => a.name.localeCompare(b.name));
+
+            if (students.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-8">No students found matching criteria.</p>';
+                return;
+            }
+
+            container.innerHTML = students.map(student => {
+                const avgGrade = student.grades.length > 0 
+                    ? (student.grades.reduce((sum, g) => sum + g.grade, 0) / student.grades.length).toFixed(1)
+                    : 'No grades';
+
+                const gradeLevelName = getGradeLevelName(student.gradeLevel);
+                const passwordDisplay = showPasswords ? student.password : '••••••••';
+
+                return `
+                    <div class="bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-600">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <h4 class="font-semibold">${student.name}</h4>
+                                    <span class="student-badge bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                        ${gradeLevelName}${student.section ? ' - ' + student.section : ''}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Username: ${student.username}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Password: ${passwordDisplay}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Code: ${student.pageCode}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Grades: ${student.grades.length} | Average: ${avgGrade}</p>
+                            </div>
+                            <div class="flex flex-col space-y-2">
+                                <button onclick="deleteStudent('${student.pageCode}')" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                                    🗑️
+                                </button>
+                                <button onclick="resetStudentPassword('${student.pageCode}')" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                    🔄
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getGradeLevelName(level) {
+            const gradeNames = [
+                'Kindergarten', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 
+                'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 
+                'Grade 10', 'Grade 11', 'Grade 12'
+            ];
+            return gradeNames[level] || `Grade ${level}`;
+        }
+
+        function resetStudentPassword(pageCode) {
+            if (studentsData[pageCode]) {
+                const newPassword = Math.random().toString(36).slice(-8);
+                studentsData[pageCode].password = newPassword;
+                saveToStorage();
+                updateStudentsList();
+                showToast(`Password reset for ${studentsData[pageCode].name}. New password: ${newPassword}`, 'success');
+            }
+        }
+
+        function deleteStudent(pageCode) {
+            if (confirm('Are you sure you want to delete this student and all their grades?')) {
+                delete studentsData[pageCode];
+                saveToStorage();
+                updateStudentsList();
+                updateGradeStudentSelect();
+                updateAdminInfo();
+                updateSubjectSummary();
+                showToast('Student deleted successfully!', 'success');
+            }
+        }
+
+        function updateGradeStudentSelect() {
+            const select = document.getElementById('gradeStudentSelect');
+            const students = Object.values(studentsData);
+
+            students.sort((a, b) => a.name.localeCompare(b.name));
+
+            select.innerHTML = '<option value="">Choose student...</option>' + 
+                students.map(student => 
+                    `<option value="${student.pageCode}">${student.name} (${getGradeLevelName(student.gradeLevel)})</option>`
+                ).join('');
+        }
+
+        function loadStudentDashboard() {
+            if (!currentStudent) return;
+
+            document.getElementById('studentWelcome').textContent = `Welcome, ${currentStudent.name}! (${getGradeLevelName(currentStudent.gradeLevel)})`;
+
+            const grades = currentStudent.grades;
+            const overallAvg = grades.length > 0 
+                ? (grades.reduce((sum, g) => sum + g.grade, 0) / grades.length).toFixed(1)
+                : '0';
+            const highest = grades.length > 0 
+                ? Math.max(...grades.map(g => g.grade))
+                : 0;
+            const subjects = new Set(grades.map(g => g.subject)).size;
+
+            document.getElementById('overallAverage').textContent = overallAvg + '%';
+            document.getElementById('highestGrade').textContent = highest + '%';
+            document.getElementById('totalSubjects').textContent = subjects;
+
+            displayGrades(grades);
+        }
+
+        function displayGrades(grades) {
+            const container = document.getElementById('gradesDisplay');
+            const sortBy = document.getElementById('sortSelect').value;
+
+            if (grades.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-8">No grades found.</p>';
+                return;
+            }
+
+            let sortedGrades = [...grades];
+            switch (sortBy) {
+                case 'subject':
+                    sortedGrades.sort((a, b) => a.subject.localeCompare(b.subject));
+                    break;
+                case 'grade-desc':
+                    sortedGrades.sort((a, b) => b.grade - a.grade);
+                    break;
+                case 'grade-asc':
+                    sortedGrades.sort((a, b) => a.grade - b.grade);
+                    break;
+                case 'date':
+                    sortedGrades.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    break;
+            }
+
+            container.innerHTML = sortedGrades.map(grade => {
+                const gradeColor = grade.grade >= 90 ? 'green' : 
+                                 grade.grade >= 80 ? 'blue' : 
+                                 grade.grade >= 70 ? 'yellow' : 'red';
+
+                return `
+                    <div class="grade-card bg-white dark:bg-gray-700 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-600">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="text-lg font-semibold">${grade.subject}</h4>
+                                <p class="text-gray-600 dark:text-gray-400">${grade.assignment}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">${grade.date}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-3xl font-bold text-${gradeColor}-600 dark:text-${gradeColor}-400">
+                                    ${grade.grade}%
+                                </div>
+                                <div class="text-sm text-${gradeColor}-600 dark:text-${gradeColor}-400">
+                                    ${grade.grade >= 90 ? 'Excellent' : 
+                                      grade.grade >= 80 ? 'Good' : 
+                                      grade.grade >= 70 ? 'Average' : 'Needs Improvement'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Grade management functions
+        document.getElementById('addGradeForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const studentPageCode = document.getElementById('gradeStudentSelect').value;
+            const subject = document.getElementById('subject').value.trim();
+            const grade = parseInt(document.getElementById('grade').value);
+            const assignment = document.getElementById('assignment').value.trim() || 'Assignment';
+
+            if (!studentPageCode || !subject || isNaN(grade)) return;
+
+            const gradeEntry = {
+                id: Date.now(),
+                subject: subject,
+                grade: grade,
+                assignment: assignment,
+                date: new Date().toLocaleDateString()
+            };
+
+            studentsData[studentPageCode].grades.push(gradeEntry);
+            saveToStorage();
+
+            document.getElementById('gradeStudentSelect').value = '';
+            document.getElementById('subject').value = '';
+            document.getElementById('grade').value = '';
+            document.getElementById('assignment').value = '';
+
+            updateStudentsList();
+            updateSubjectSummary();
+            showToast('Grade added successfully!', 'success');
+        });
+
+        // Excel functionality for grades upload
+        const uploadArea = document.getElementById('uploadArea');
+        const excelUpload = document.getElementById('excelUpload');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        uploadArea.addEventListener('click', () => {
+            excelUpload.click();
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleExcelUpload(files[0]);
+            }
+        });
+
+        excelUpload.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleExcelUpload(e.target.files[0]);
+            }
+        });
+
+        function handleExcelUpload(file) {
+            const fileName = file.name;
+            const fileExtension = fileName.split('.').pop().toLowerCase();
+            
+            if (!['xlsx', 'xls', 'csv'].includes(fileExtension)) {
+                showToast('Please upload a valid Excel or CSV file', 'error');
+                return;
+            }
+
+            uploadStatus.innerHTML = `<div class="text-blue-600 dark:text-blue-400">📤 Processing ${fileName}...</div>`;
+            uploadStatus.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    processExcelData(jsonData, fileName);
+                } catch (error) {
+                    console.error('Error reading Excel file:', error);
+                    uploadStatus.innerHTML = `<div class="text-red-600 dark:text-red-400">❌ Error reading file: ${error.message}</div>`;
+                    showToast('Error reading Excel file', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processExcelData(data, fileName) {
+            if (data.length < 2) {
+                uploadStatus.innerHTML = `<div class="text-red-600 dark:text-red-400">❌ File must contain at least a header row and one data row</div>`;
+                return;
+            }
+
+            const headers = data[0];
+            const rows = data.slice(1);
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+
+            const expectedHeaders = ['username', 'subject', 'grade', 'assignment'];
+            const headerMap = {};
+            
+            headers.forEach((header, index) => {
+                const normalizedHeader = header.toString().toLowerCase().trim();
+                if (expectedHeaders.includes(normalizedHeader)) {
+                    headerMap[normalizedHeader] = index;
+                }
+            });
+
+            if (!headerMap.username || !headerMap.subject || !headerMap.grade) {
+                uploadStatus.innerHTML = `<div class="text-red-600 dark:text-red-400">❌ Required columns missing. Expected: Username, Subject, Grade, Assignment (optional)</div>`;
+                return;
+            }
+
+            rows.forEach((row, rowIndex) => {
+                try {
+                    const username = row[headerMap.username]?.toString().trim();
+                    const subject = row[headerMap.subject]?.toString().trim();
+                    const grade = parseFloat(row[headerMap.grade]);
+                    const assignment = row[headerMap.assignment]?.toString().trim() || 'Assignment';
+
+                    if (!username || !subject || isNaN(grade)) {
+                        errors.push(`Row ${rowIndex + 2}: Missing required data`);
+                        errorCount++;
+                        return;
+                    }
+
+                    if (grade < 0 || grade > 100) {
+                        errors.push(`Row ${rowIndex + 2}: Grade must be between 0-100`);
+                        errorCount++;
+                        return;
+                    }
+
+                    const student = Object.values(studentsData).find(s => s.username.toLowerCase() === username.toLowerCase());
+                    if (!student) {
+                        errors.push(`Row ${rowIndex + 2}: Student '${username}' not found`);
+                        errorCount++;
+                        return;
+                    }
+
+                    // Add subject if it doesn't exist
+                    if (!subjects.includes(subject)) {
+                        subjects.push(subject);
+                    }
+
+                    const gradeEntry = {
+                        id: Date.now() + Math.random(),
+                        subject: subject,
+                        grade: Math.round(grade),
+                        assignment: assignment,
+                        date: new Date().toLocaleDateString()
+                    };
+
+                    student.grades.push(gradeEntry);
+                    successCount++;
+
+                } catch (error) {
+                    errors.push(`Row ${rowIndex + 2}: ${error.message}`);
+                    errorCount++;
+                }
+            });
+
+            if (successCount > 0) {
+                saveToStorage();
+                updateStudentsList();
+                updateSubjectList();
+                updateSubjectSelect();
+                updateSubjectSummary();
+            }
+
+            let statusHTML = `<div class="space-y-2">`;
+            if (successCount > 0) {
+                statusHTML += `<div class="text-green-600 dark:text-green-400">✅ Successfully imported ${successCount} grades from ${fileName}</div>`;
+            }
+            if (errorCount > 0) {
+                statusHTML += `<div class="text-red-600 dark:text-red-400">❌ ${errorCount} errors occurred:</div>`;
+                statusHTML += `<div class="text-sm text-red-500 dark:text-red-400 max-h-32 overflow-y-auto">`;
+                errors.slice(0, 10).forEach(error => {
+                    statusHTML += `<div>• ${error}</div>`;
+                });
+                if (errors.length > 10) {
+                    statusHTML += `<div>... and ${errors.length - 10} more errors</div>`;
+                }
+                statusHTML += `</div>`;
+            }
+            statusHTML += `</div>`;
+
+            uploadStatus.innerHTML = statusHTML;
+            
+            if (successCount > 0) {
+                showToast(`Successfully imported ${successCount} grades!`, 'success');
+            }
+            if (errorCount > 0) {
+                showToast(`${errorCount} errors occurred during import`, 'error');
+            }
+
+            excelUpload.value = '';
+        }
+
+        document.getElementById('downloadTemplateBtn').addEventListener('click', () => {
+            const templateData = [
+                ['Username', 'Subject', 'Grade', 'Assignment'],
+                ['demo_student', 'Mathematics', '95', 'Final Exam'],
+                ['demo_student', 'Science', '88', 'Quiz 1'],
+                ['demo_student', 'English', '92', 'Essay'],
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Grade Template');
+            
+            const fileName = `Grade_Upload_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast('Excel template downloaded!', 'success');
+        });
+
+        document.getElementById('downloadMyGradesBtn').addEventListener('click', () => {
+            if (!currentStudent) return;
+            downloadStudentGrades(currentStudent);
+        });
+
+        function downloadStudentGrades(student) {
+            const wb = XLSX.utils.book_new();
+            
+            const infoData = [
+                ['Student Grade Report'],
+                ['Student Name:', student.name],
+                ['Username:', student.username],
+                ['Grade Level:', getGradeLevelName(student.gradeLevel)],
+                ['Section:', student.section || 'N/A'],
+                ['Report Generated:', new Date().toLocaleString()],
+                ['Total Grades:', student.grades.length],
+                ['Data Stored at:', OWNER_EMAIL],
+                ['Education Profile:', INSTABIO_LINK],
+                []
+            ];
+
+            if (student.grades.length > 0) {
+                const grades = student.grades.map(g => g.grade);
+                const average = (grades.reduce((sum, g) => sum + g, 0) / grades.length).toFixed(1);
+                const highest = Math.max(...grades);
+                const lowest = Math.min(...grades);
+                const subjects = new Set(student.grades.map(g => g.subject)).size;
+
+                infoData.push(
+                    ['Statistics:'],
+                    ['Overall Average:', `${average}%`],
+                    ['Highest Grade:', `${highest}%`],
+                    ['Lowest Grade:', `${lowest}%`],
+                    ['Number of Subjects:', subjects],
+                    []
+                );
+            }
+
+            const infoWs = XLSX.utils.aoa_to_sheet(infoData);
+            XLSX.utils.book_append_sheet(wb, infoWs, 'Student Info');
+
+            if (student.grades.length > 0) {
+                const gradesData = [
+                    ['Subject', 'Assignment', 'Grade', 'Performance', 'Date']
+                ];
+
+                const sortedGrades = [...student.grades].sort((a, b) => a.subject.localeCompare(b.subject));
+
+                sortedGrades.forEach(grade => {
+                    const performance = grade.grade >= 90 ? 'Excellent' : 
+                                     grade.grade >= 80 ? 'Good' : 
+                                     grade.grade >= 70 ? 'Average' : 'Needs Improvement';
+                    
+                    gradesData.push([
+                        grade.subject,
+                        grade.assignment,
+                        `${grade.grade}%`,
+                        performance,
+                        grade.date
+                    ]);
+                });
+
+                const gradesWs = XLSX.utils.aoa_to_sheet(gradesData);
+                XLSX.utils.book_append_sheet(wb, gradesWs, 'My Grades');
+
+                const subjectStats = {};
+                student.grades.forEach(grade => {
+                    if (!subjectStats[grade.subject]) {
+                        subjectStats[grade.subject] = [];
+                    }
+                    subjectStats[grade.subject].push(grade.grade);
+                });
+
+                const summaryData = [
+                    ['Subject', 'Total Assignments', 'Average Grade', 'Highest Grade', 'Lowest Grade']
+                ];
+
+                Object.entries(subjectStats)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .forEach(([subject, grades]) => {
+                        const avg = (grades.reduce((sum, g) => sum + g, 0) / grades.length).toFixed(1);
+                        const high = Math.max(...grades);
+                        const low = Math.min(...grades);
+                        
+                        summaryData.push([
+                            subject,
+                            grades.length,
+                            `${avg}%`,
+                            `${high}%`,
+                            `${low}%`
+                        ]);
+                    });
+
+                const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, summaryWs, 'Subject Summary');
+            }
+
+            const fileName = `${student.name.replace(/\s+/g, '_')}_Grades_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast(`Your grades downloaded as ${fileName}!`, 'success');
+        }
+
+        document.getElementById('exportExcelBtn').addEventListener('click', () => {
+            exportToExcel();
+        });
+
+        function exportToExcel() {
+            const students = Object.values(studentsData);
+            if (students.length === 0) {
+                showToast('No student data to export', 'error');
+                return;
+            }
+
+            students.sort((a, b) => a.name.localeCompare(b.name));
+
+            const wb = XLSX.utils.book_new();
+
+            const ownerInfo = [
+                ['Grade Portal Export Report'],
+                ['Owner Email:', OWNER_EMAIL],
+                ['Approval Email:', APPROVAL_EMAIL],
+                ['Education Profile:', INSTABIO_LINK],
+                ['Export Date:', new Date().toLocaleString()],
+                ['Total Students:', students.length],
+                ['Total Grades:', students.reduce((sum, s) => sum + s.grades.length, 0)],
+                []
+            ];
+            const ownerWs = XLSX.utils.aoa_to_sheet(ownerInfo);
+            XLSX.utils.book_append_sheet(wb, ownerWs, 'Export Info');
+
+            const summaryData = [
+                ['Student Name', 'Username', 'Password', 'Grade Level', 'Section', 'Page Code', 'Total Grades', 'Average Grade', 'Highest Grade', 'Lowest Grade']
+            ];
+
+            students.forEach(student => {
+                const grades = student.grades.map(g => g.grade);
+                const avgGrade = grades.length > 0 ? (grades.reduce((sum, g) => sum + g, 0) / grades.length).toFixed(1) : 'N/A';
+                const highestGrade = grades.length > 0 ? Math.max(...grades) : 'N/A';
+                const lowestGrade = grades.length > 0 ? Math.min(...grades) : 'N/A';
+
+                summaryData.push([
+                    student.name,
+                    student.username,
+                    student.password,
+                    getGradeLevelName(student.gradeLevel),
+                    student.section || 'N/A',
+                    student.pageCode,
+                    grades.length,
+                    avgGrade,
+                    highestGrade,
+                    lowestGrade
+                ]);
+            });
+
+            const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, summaryWs, 'Student Summary');
+
+            const detailedData = [
+                ['Student Name', 'Username', 'Grade Level', 'Section', 'Page Code', 'Subject', 'Assignment', 'Grade', 'Date']
+            ];
+
+            students.forEach(student => {
+                const sortedGrades = [...student.grades].sort((a, b) => a.subject.localeCompare(b.subject));
+                
+                sortedGrades.forEach(grade => {
+                    detailedData.push([
+                        student.name,
+                        student.username,
+                        getGradeLevelName(student.gradeLevel),
+                        student.section || 'N/A',
+                        student.pageCode,
+                        grade.subject,
+                        grade.assignment,
+                        grade.grade,
+                        grade.date
+                    ]);
+                });
+            });
+
+            const detailedWs = XLSX.utils.aoa_to_sheet(detailedData);
+            XLSX.utils.book_append_sheet(wb, detailedWs, 'Detailed Grades');
+
+            // Add subject performance summary
+            const subjectPerformance = calculateSubjectPerformance();
+            const subjectWs = XLSX.utils.aoa_to_sheet(subjectPerformance);
+            XLSX.utils.book_append_sheet(wb, subjectWs, 'Subject Performance');
+
+            const fileName = `Grade_Report_Admin_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast(`Excel file exported successfully!`, 'success');
+        }
+
+        function calculateSubjectPerformance() {
+            const subjectStats = {};
+            const allStudents = Object.values(studentsData);
+            
+            // Initialize subject stats
+            subjects.forEach(subject => {
+                subjectStats[subject] = {
+                    grades: [],
+                    students: new Set()
+                };
+            });
+            
+            // Collect all grades per subject
+            allStudents.forEach(student => {
+                student.grades.forEach(grade => {
+                    if (subjectStats[grade.subject]) {
+                        subjectStats[grade.subject].grades.push(grade.grade);
+                        subjectStats[grade.subject].students.add(student.name);
+                    }
+                });
+            });
+            
+            // Prepare data for display
+            const result = [
+                ['Subject', 'Students Count', 'Average Grade', 'Highest Grade', 'Lowest Grade', 'Top Performers']
+            ];
+            
+            Object.entries(subjectStats)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .forEach(([subject, stats]) => {
+                    if (stats.grades.length > 0) {
+                        const avg = (stats.grades.reduce((sum, g) => sum + g, 0) / stats.grades.length).toFixed(1);
+                        const high = Math.max(...stats.grades);
+                        const low = Math.min(...stats.grades);
+                        
+                        // Find top 3 students for this subject
+                        const topStudents = allStudents
+                            .map(student => {
+                                const subjectGrades = student.grades
+                                    .filter(g => g.subject === subject)
+                                    .map(g => g.grade);
+                                const avgGrade = subjectGrades.length > 0 
+                                    ? (subjectGrades.reduce((sum, g) => sum + g, 0) / subjectGrades.length).toFixed(1)
+                                    : 0;
+                                return {
+                                    name: student.name,
+                                    average: avgGrade
+                                };
+                            })
+                            .filter(s => s.average > 0)
+                            .sort((a, b) => b.average - a.average)
+                            .slice(0, 3)
+                            .map(s => `${s.name} (${s.average}%)`)
+                            .join(', ');
+                        
+                        result.push([
+                            subject,
+                            stats.students.size,
+                            `${avg}%`,
+                            `${high}%`,
+                            `${low}%`,
+                            topStudents || 'N/A'
+                        ]);
+                    }
+                });
+            
+            return result;
+        }
+
+        function updateSubjectSummary() {
+            const container = document.getElementById('subjectSummary');
+            const subjectStats = {};
+            const allStudents = Object.values(studentsData);
+            
+            // Initialize subject stats
+            subjects.forEach(subject => {
+                subjectStats[subject] = {
+                    grades: [],
+                    students: new Set()
+                };
+            });
+            
+            // Collect all grades per subject
+            allStudents.forEach(student => {
+                student.grades.forEach(grade => {
+                    if (subjectStats[grade.subject]) {
+                        subjectStats[grade.subject].grades.push(grade.grade);
+                        subjectStats[grade.subject].students.add(student.name);
+                    }
+                });
+            });
+            
+            // Filter out subjects with no grades
+            const activeSubjects = Object.entries(subjectStats)
+                .filter(([_, stats]) => stats.grades.length > 0)
+                .sort(([a], [b]) => a.localeCompare(b));
+            
+            if (activeSubjects.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-8">No subjects with grades yet.</p>';
+                return;
+            }
+            
+            container.innerHTML = activeSubjects.map(([subject, stats]) => {
+                const avg = (stats.grades.reduce((sum, g) => sum + g, 0) / stats.grades.length).toFixed(1);
+                const high = Math.max(...stats.grades);
+                const low = Math.min(...stats.grades);
+                
+                // Find top 3 students for this subject
+                const topStudents = allStudents
+                    .map(student => {
+                        const subjectGrades = student.grades
+                            .filter(g => g.subject === subject)
+                            .map(g => g.grade);
+                        const avgGrade = subjectGrades.length > 0 
+                            ? (subjectGrades.reduce((sum, g) => sum + g, 0) / subjectGrades.length).toFixed(1)
+                            : 0;
+                        return {
+                            name: student.name,
+                            average: avgGrade
+                        };
+                    })
+                    .filter(s => s.average > 0)
+                    .sort((a, b) => b.average - a.average)
+                    .slice(0, 3);
+                
+                return `
+                    <div class="subject-summary bg-white dark:bg-gray-700 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-600">
+                        <h4 class="text-lg font-semibold mb-2">${subject}</h4>
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Students:</div>
+                            <div class="text-sm font-medium">${stats.students.size}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Average:</div>
+                            <div class="text-sm font-medium">${avg}%</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Highest:</div>
+                            <div class="text-sm font-medium">${high}%</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Lowest:</div>
+                            <div class="text-sm font-medium">${low}%</div>
+                        </div>
+                        <div class="mt-2">
+                            <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Top Performers:</p>
+                            <ol class="list-decimal list-inside text-sm space-y-1">
+                                ${topStudents.map((s, i) => `
+                                    <li class="${i === 0 ? 'rank-1 font-bold' : i === 1 ? 'rank-2' : 'rank-3'}">
+                                        ${s.name} (${s.average}%)
+                                    </li>
+                                `).join('')}
+                            </ol>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('foundersAccessBtn').addEventListener('click', () => {
+            document.getElementById('contactViewCheckbox').click();
+            document.getElementById('founderPassword').focus();
+        });
+
+        document.getElementById('founderLoginBtn').addEventListener('click', () => {
+            const password = document.getElementById('founderPassword').value;
+            const accessDiv = document.getElementById('founderAccess');
+            
+            if (password === FOUNDER_ACCESS_CODE) {
+                accessDiv.classList.remove('hidden');
+                showToast('Owner access granted!', 'success');
+            } else {
+                showToast('Invalid access code', 'error');
+                document.getElementById('founderPassword').value = '';
+            }
+        });
+
+        document.getElementById('contactForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('contactName').value;
+            const email = document.getElementById('contactEmail').value;
+            const institution = document.getElementById('contactInstitution').value;
+            const subject = document.getElementById('contactSubject').value;
+            const message = document.getElementById('contactMessage').value;
+            
+            setTimeout(() => {
+                const successDiv = document.getElementById('contactSuccess');
+                successDiv.innerHTML = `
+                    <div class="font-semibold">Message sent successfully!</div>
+                    <div class="text-sm mt-1">Thank you ${name}! Your message about "${document.getElementById('contactSubject').selectedOptions[0].text}" has been sent to the app owner at ${OWNER_EMAIL} and copied to ${APPROVAL_EMAIL}. You should receive a response at ${email} within 24 hours.</div>
+                `;
+                successDiv.classList.remove('hidden');
+                
+                document.getElementById('contactForm').reset();
+                showToast(`Message sent to ${OWNER_EMAIL} and ${APPROVAL_EMAIL}!`, 'success');
+            }, 1000);
+        });
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white z-50 transition-all duration-300 transform translate-x-full ${
+                type === 'success' ? 'bg-green-600' : 
+                type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+            }`;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (document.body.contains(toast)) {
+                        document.body.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function initializeSampleData() {
+            if (Object.keys(studentsData).length === 0) {
+                const sampleStudent = {
+                    name: 'Demo Student',
+                    username: 'demo_student',
+                    password: 'demo123',
+                    gradeLevel: 10,
+                    section: 'Science',
+                    pageCode: 'DEMO123',
+                    grades: [
+                        { id: 1, subject: 'English', grade: 95, assignment: 'Essay', date: '2024-01-20' },
+                        { id: 2, subject: 'History', grade: 85, assignment: 'Midterm', date: '2024-01-22' },
+                        { id: 3, subject: 'Mathematics', grade: 92, assignment: 'Algebra Test', date: '2024-01-15' },
+                        { id: 4, subject: 'Science', grade: 88, assignment: 'Physics Quiz', date: '2024-01-18' }
+                    ]
+                };
+                
+                studentsData['DEMO123'] = sampleStudent;
+                saveToStorage();
+            }
+        }
+
+        function initializeMainApp() {
+            updateStudentsList();
+            updateGradeStudentSelect();
+            updateSubjectList();
+            updateSubjectSelect();
+            updateSubjectSummary();
+            document.getElementById('teacherViewCheckbox').click();
+        }
+
+        // Initialize the application
+        loadFromStorage();
+        
+        // Check if admin setup is needed first
+        if (!checkAdminSetup()) {
+            // Admin setup is required
+            // Auto-fill the admin email and password for convenience
+            document.getElementById('adminSetupEmail').value = 'admin@gradeportal.com';
+            document.getElementById('adminSetupPassword').value = 'Admin@123';
+        } else {
+            // Normal app flow
+            initializeSampleData();
+        }
+    </script>
+</body>
+</html>
